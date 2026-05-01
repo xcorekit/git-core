@@ -14,8 +14,8 @@ IFS=$'\n\t'
 # Directories
 # -----------------------------
 GITSPACE_ROOT="$HOME/systems-engineer/Systems/XSpace/git-space"
-BIN_DIR="$GITSPACE_ROOT/bin"
-LIB_DIR="$GITSPACE_ROOT/lib"
+BIN_DIR="$GITSPACE_ROOT/cli/bin"
+LIB_DIR="$GITSPACE_ROOT/cli/lib"
 TEMPLATES_DIR="$GITSPACE_ROOT/templates"
 COMPLETION_DIR="$GITSPACE_ROOT/completion"
 LOG_DIR="$HOME/.gitspace/logs"

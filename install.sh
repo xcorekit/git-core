@@ -1,123 +1,51 @@
 #!/usr/bin/env bash
-
-# GitSpace full installer — handsfree setup for commitx and scripts
-
-# -----------------------------
-# Path: ~/systems-engineer/Systems/XSpace/git-space/install.sh
-# -----------------------------
-
-
+# git-core/install.sh
+# ─────────────────────────────────────────────────────────────────────────────
+# CHANGELOG (newest first)
+# ─────────────────────────────────────────────────────────────────────────────
+#   2026-05-03  Rewritten — cli/ layout, clean PATH guard, no dead paths
+#   2026-04-30  Initial standalone installer
+# ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
-IFS=$'\n\t'
 
-# -----------------------------
-# Directories
-# -----------------------------
-GITSPACE_ROOT="$HOME/systems-engineer/Systems/XSpace/git-space"
-BIN_DIR="$GITSPACE_ROOT/cli/bin"
-LIB_DIR="$GITSPACE_ROOT/cli/lib"
-TEMPLATES_DIR="$GITSPACE_ROOT/templates"
-COMPLETION_DIR="$GITSPACE_ROOT/completion"
-LOG_DIR="$HOME/.gitspace/logs"
-USER_BIN="$HOME/bin"
+_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_BIN="$_ROOT/cli/bin"
+_LIB="$_ROOT/cli/lib"
+_USER_BIN="${HOME}/bin"
+_RC="${HOME}/.bashrc"
 
-echo "Installing GitSpace..."
+printf '\n  git-core install\n  ────────────────\n\n'
 
-# Create directories
-mkdir -p "$BIN_DIR" "$LIB_DIR" "$TEMPLATES_DIR" "$COMPLETION_DIR" "$LOG_DIR" "$USER_BIN"
+mkdir -p "$_USER_BIN"
+chmod +x "$_BIN"/*
 
-# Make scripts executable
-chmod +x "$BIN_DIR"/* "$LIB_DIR"/* 2>/dev/null || true
-
-# -----------------------------
-# Helper functions
-# -----------------------------
-add_path_line() {
-    local shell_rc="$1"
-    local line="$2"
-    mkdir -p "$(dirname "$shell_rc")" 2>/dev/null || true
-    if ! grep -Fxq "$line" "$shell_rc" 2>/dev/null; then
-        printf "\n# GitSpace CLI: add bin to PATH\n%s\n" "$line" >> "$shell_rc"
-        echo "Added PATH line to $shell_rc"
-    else
-        echo "PATH line already present in $shell_rc"
-    fi
-}
-
-link_scripts() {
-    for f in "$BIN_DIR"/*; do
-        [ -f "$f" ] || continue
-        ln -sf "$f" "$USER_BIN/$(basename "$f")"
-    done
-    echo "Symlinked GitSpace scripts into $USER_BIN"
-}
-
-# -----------------------------
-# Detect shell RC
-# -----------------------------
-SHELL_RC=""
-if [ -n "${ZSH_VERSION-}" ]; then
-    SHELL_RC="$HOME/.zshrc"
-elif [ -n "${BASH_VERSION-}" ]; then
-    SHELL_RC="$HOME/.bashrc"
+# PATH guard — idempotent
+if ! grep -qF "$_BIN" "$_RC" 2>/dev/null; then
+    printf '\n# git-core\nexport PATH="$PATH:%s"\n' "$_BIN" >> "$_RC"
+    printf '  +  Added cli/bin to PATH\n'
 else
-    SHELL_RC="$HOME/.profile"
+    printf '  ✓  Already in PATH\n'
 fi
 
-# -----------------------------
-# Add ~/bin to PATH if missing
-# -----------------------------
-SAFE_ADD='[[ ":$PATH:" != *":$HOME/bin:"* ]] && PATH="$HOME/bin:$PATH"'
-add_path_line "$SHELL_RC" "$SAFE_ADD"
+# Symlinks
+for f in "$_BIN"/*; do
+    ln -sf "$f" "$_USER_BIN/$(basename "$f")"
+    printf '  ~  Linked: %s\n' "$(basename "$f")"
+done
 
-# -----------------------------
-# Symlink all scripts
-# -----------------------------
-link_scripts
-
-# -----------------------------
-# Completion script (optional)
-# -----------------------------
-if [[ -f "$COMPLETION_DIR/gitspace-completion.sh" ]]; then
-    COMPLETION_LINE="# GitSpace completion"
-    if ! grep -Fq "$COMPLETION_LINE" "$SHELL_RC"; then
-        if [[ -n "${BASH_VERSION-}" ]]; then
-            echo -e "\n$COMPLETION_LINE\nsource \"$COMPLETION_DIR/gitspace-completion.sh\"" >> "$SHELL_RC"
-        elif [[ -n "${ZSH_VERSION-}" ]]; then
-            echo -e "\n$COMPLETION_LINE\nautoload -U compinit && compinit\nsource \"$COMPLETION_DIR/gitspace-completion.sh\"" >> "$SHELL_RC"
-        fi
-        echo "Installed completion loader into $SHELL_RC"
+# Tab completion — stable symlink
+_COMPLETION_DIR="$HOME/.local/share/xspace"
+_COMPLETION_SRC="$_ROOT/completion/gitspace-completion.sh"
+mkdir -p "$_COMPLETION_DIR"
+if [[ -f "$_COMPLETION_SRC" ]]; then
+    ln -sf "$_COMPLETION_SRC" "$_COMPLETION_DIR/gitspace-completion.sh"
+    _COMP_LINE="source \"$_COMPLETION_DIR/gitspace-completion.sh\""
+    if ! grep -qF "$_COMPLETION_DIR/gitspace-completion.sh" "$_RC" 2>/dev/null; then
+        printf '\n# git-core completion\n%s\n' "$_COMP_LINE" >> "$_RC"
+        printf '  +  Wired tab completion\n'
+    else
+        printf '  ✓  Completion already wired\n'
     fi
 fi
 
-# -----------------------------
-# Ensure templates dir has default PR template
-# -----------------------------
-TEMPLATE_PR_DIR="$TEMPLATES_DIR/pr"
-mkdir -p "$TEMPLATE_PR_DIR"
-if [[ ! -f "$TEMPLATE_PR_DIR/default.md" ]]; then
-    cat > "$TEMPLATE_PR_DIR/default.md" <<'EOF'
-## Summary
-
-{{COMMITS}}
-
-## What changed
-Describe the changes.
-
-## Diffstat
-{{DIFFSTAT}}
-
-## Notes
-- Anything reviewers should be aware of.
-EOF
-    echo "Installed default PR template at $TEMPLATE_PR_DIR/default.md"
-fi
-
-# -----------------------------
-# Done
-# -----------------------------
-mkdir -p "$GITSPACE_ROOT/.gitspace" && touch "$GITSPACE_ROOT/.gitspace/installed"
-echo "GitSpace install complete. All scripts symlinked to ~/bin."
-echo "Run 'source $SHELL_RC' or open a new shell to activate commitx and other commands."
-
-exit 0
+printf '\n  Done.\n  Run: source ~/.bashrc\n  Then: commitx --help\n\n'
